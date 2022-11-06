@@ -1,0 +1,15 @@
+--1
+local CameraRotationMatrix = CFrame.new()
+--2
+local MouseDelta = UserInputService:GetMouseDelta() * -GameSettings.MouseSensitivity
+--3
+CameraRotationMatrix *= (CFrame.new(0,0,0,rad(MouseDelta.Y * S),0,0,qW))
+CameraRotationMatrix = (CFrame.Angles(0,rad(MouseDelta.X / 16),0) * CameraRotationMatrix)
+--4
+CacheCFrame = CameraRotationMatrix + SmoothCamera.CameraSubject.Position -- CacheCFrame is just a placeholder I used for storing CFrames. I use it in other places of my code too.
+--5
+Camera.CFrame =  CFrame.lookAt(
+	SubjectPosition + (CacheCFrame.LookVector * -SmoothCamera.CameraDistance), -- Translate backwards,
+	SubjectPosition,
+	CacheCFrame.UpVector -- Keep Camera oriented correctly to the CFrame (without this Camera will stay always facinig up normally)
+)
