@@ -1,21 +1,104 @@
-wait(1)
-local plr = game.Players.LocalPlayer
-local uis = game:GetService("UserInputService")
-local rs = game:GetService("RunService")
-local cam = workspace.CurrentCamera
-cam.CameraType = Enum.CameraType.Scriptable
-cam.CFrame = plr.Character.Head.CFrame
+require(game.Players.LocalPlayer.PlayerScripts.PlayerModule.CameraModule) -- We need some stuff from here.
 
-rs.RenderStepped:Connect(function(step)
-	uis.MouseBehavior = Enum.MouseBehavior.LockCenter
-	local delta = uis:GetMouseDelta()
-	--print(delta)
-	local x = delta.X
-	local y = delta.Y
-	local addRotation = CFrame.Angles(math.rad(-y),math.rad(-x),math.rad(0))
+-- Locals
+local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
-	local headCf = plr.Character.Head.CFrame
-	local headCFPosOnly = CFrame.new(headCf.Position)
-	local currentCamRotationOnly = cam.CFrame-cam.CFrame.Position
-	cam.CFrame = headCFPosOnly*currentCamRotationOnly*addRotation
+local ModdedCamera = {}
+
+function ModdedCamera.new() -- Setup our custom camera
+local self = setmetatable(
+{},
+{
+__index = function(self, Index)
+if ModdedCamera[Index] then
+return ModdedCamera[Index]
+end
+end
+}
+)
+
+self.CurrentCamera = game.Workspace.CurrentCamera -- Get current camera
+self.Character = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait() -- Get Player
+
+-- Our offsets
+self.X = 0
+self.Y = 0
+
+self.Sensitivity = 0.015 -- Change camera Sensitivity (You can make it smoother)
+self.CameraOffset = Vector3.new(0, 3, 12)
+
+-- Toggle handle
+self.IsRightMouseButtonDown = false
+
+self:Initialize()
+
+return self
+end
+
+function ModdedCamera:Initialize()
+self.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+
+ContextActionService:BindAction(
+"RightClickChanged",
+
+function(ActionName, InputState, InputObject)
+self:RightClickChanged(ActionName, InputState, InputObject)
+end,
+
+false,
+Enum.UserInputType.MouseButton2
+)
+
+ContextActionService:BindAction(
+"UpdateAngles",
+
+function(ActionName, InputState, InputObject)
+self:UpdateAngles(ActionName, InputState, InputObject)
+end,
+
+false,
+Enum.UserInputType.MouseMovement
+)
+
+RunService:BindToRenderStep("UpdateCamera", 200, function()
+self:UpdateCamera()
 end)
+end
+
+-- Bind our right click
+function ModdedCamera:RightClickChanged(ActionName, InputState, InputObject)
+if InputState == Enum.UserInputState.Begin then
+IsRightMouseButtonDown = true
+elseif InputState == Enum.UserInputState.End then
+IsRightMouseButtonDown = false
+end
+end
+
+-- Update Angles function
+function ModdedCamera:UpdateAngles(ActionName, InputState, InputObject)
+if IsRightMouseButtonDown then
+UserInputService.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+
+self.X = self.X + (InputObject.Delta.X * -self.Sensitivity)
+self.Y = self.Y + (InputObject.Delta.Y * -self.Sensitivity)
+else
+UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+end
+end
+
+-- Update function
+function ModdedCamera:UpdateCamera()
+self.CurrentCamera.CFrame = CFrame.new(self.Character.HumanoidRootPart.Position) * CFrame.fromEulerAnglesXYZ(0, self.X, 0) * CFrame.fromEulerAnglesXYZ(self.Y, 0, 0) * CFrame.new(self.CameraOffset.X, self.CameraOffset.Y, self.CameraOffset.Z)
+
+local CameraRay = Ray.new(self.Character.HumanoidRootPart.Position, self.CurrentCamera.CFrame.Position - self.Character.HumanoidRootPart.Position)
+local Ignore = {self.Character}
+
+local HitPart, HitPosition = game.Workspace:FindPartOnRayWithIgnoreList(CameraRay, Ignore)
+
+self.CurrentCamera.CFrame = (self.CurrentCamera.CFrame - (self.CurrentCamera.CFrame.Position - HitPosition)) + (self.Character.HumanoidRootPart.Position - self.CurrentCamera.CFrame.Position).Unit
+self.CurrentCamera.Focus = self.CurrentCamera.CFrame
+end
+
+return ModdedCamera.new()
